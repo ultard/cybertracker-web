@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Navigate } from 'react-router';
 import { toast } from 'sonner';
 
@@ -6,6 +6,7 @@ import $api from '~/lib/api.client';
 import { readApiErrorMessage } from '~/lib/api-errors';
 import { canValidateQr } from '~/lib/roles';
 
+import { QrVideoScanner } from '~/components/qr-video-scanner';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import {
@@ -17,6 +18,7 @@ import {
 } from '~/components/ui/card';
 import { Field, FieldGroup, FieldLabel } from '~/components/ui/field';
 import { Skeleton } from '~/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Textarea } from '~/components/ui/textarea';
 
 import { useMe } from '~/hooks/use-me';
@@ -35,6 +37,14 @@ export default function StaffQrValidateRoute() {
 		message?: string;
 		participant_id?: number;
 	} | null>(null);
+
+	const onScan = useCallback((text: string) => {
+		setToken(text.trim());
+		setResult(null);
+		toast.message('QR считан', {
+			description: 'Проверьте поле и отправьте форму'
+		});
+	}, []);
 
 	const validate = $api.useMutation('post', '/api/qr/validate', {
 		onSuccess: (data) => {
@@ -67,9 +77,26 @@ export default function StaffQrValidateRoute() {
 			<Card>
 				<CardHeader>
 					<CardTitle className="text-base">Токен посетителя</CardTitle>
-					<CardDescription>Вставьте строку из QR участника</CardDescription>
+					<CardDescription>
+						Отсканируйте камерой или вставьте строку из QR участника
+					</CardDescription>
 				</CardHeader>
 				<CardContent>
+					<Tabs defaultValue="camera" className="mb-4">
+						<TabsList className="grid w-full grid-cols-2">
+							<TabsTrigger value="camera">Камера</TabsTrigger>
+							<TabsTrigger value="manual">Вручную</TabsTrigger>
+						</TabsList>
+						<TabsContent value="camera" className="mt-4">
+							<QrVideoScanner onResult={onScan} />
+						</TabsContent>
+						<TabsContent value="manual" className="mt-4">
+							<p className="text-muted-foreground text-sm">
+								Вставьте значение, если сканер недоступен (например, скриншот в
+								буфере).
+							</p>
+						</TabsContent>
+					</Tabs>
 					<form
 						onSubmit={(e) => {
 							e.preventDefault();

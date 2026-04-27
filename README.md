@@ -1,87 +1,96 @@
-# Welcome to React Router!
+# CyberTracker frontend
 
-A modern, production-ready template for building full-stack React applications using React Router.
+Веб-клиент для CyberTracker: **React 19**, **React Router 7** (фреймворк + Vite), **TanStack Query**, типизированные запросы к REST через **openapi-fetch** / **openapi-react-query** по спецификации **OpenAPI**. Стили — **Tailwind CSS 4**, компоненты на базе **Radix UI** / **shadcn**. Сборка по умолчанию **без SSR** (`react-router.config.ts`: `ssr: false`).
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+## Требования
 
-## Features
+- **Node.js** ≥ 22  
+- **npm** (или совместимый менеджер пакетов)  
+- **Docker** (опционально, для сборки образа из `Dockerfile`)
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+## Документация API
 
-## Getting Started
+OpenAPI-контракт для клиента лежит в **`openapi.yaml`** (вручную синхронизируется с бэкендом). Живая документация эндпоинтов — в [backend/README.md](../backend/README.md) (Scalar, Swagger, ReDoc, `/openapi.json`).
 
-### Installation
+## Структура кода
 
-Install the dependencies:
+Код в каталоге **`app/`**: маршруты, общий layout, клиент API, состояние авторизации, UI.
+
+- **`app/routes.ts`**: декларация маршрутов React Router (дерево `layout` / `route` / `index`).
+- **`app/root.tsx`**: корневой HTML-шелл, обработка ошибок маршрута, подключение провайдеров.
+- **`app/providers.tsx`**: обёртка приложения (React Query, тема, toast).
+- **`app/routes/_layout.tsx`**: общий каркас страниц (шапка, выход, `Outlet`).
+- **`app/routes/`**: экраны приложения (домашняя, логин/регистрация, дисциплины, турниры, профиль, орг-зона, админка, персонал).
+- **`app/lib/api.client.ts`**: `openapi-fetch` + `openapi-react-query`, базовый URL из env, **Bearer** и обновление access-токена через `/api/auth/refresh`.
+- **`app/lib/api.schema.ts`**: типы `paths` / `components`, генерируются из `openapi.yaml` (**не править вручную** — см. раздел про `api:gen`).
+- **`app/lib/api.types.ts`**: узкие алиасы типов для удобства импорта в экранах.
+- **`app/lib/api-errors.ts`**: разбор тел ошибок API для toast/форм.
+- **`app/lib/roles.ts`**: проверки ролей для условного UI (организатор, админ, судья и т.д.).
+- **`app/lib/query.client.ts`**: фабрика клиента React Query (если используется отдельно от `$api`).
+- **`app/lib/utils.ts`**: утилиты (`cn` и др.).
+- **`app/store/auth.store.ts`**: **zustand** — access/refresh токены и синхронизация с `localStorage`.
+- **`app/hooks/`**: хуки (`use-me`, `use-logout`).
+- **`app/components/`**: прикладные блоки (шапка, пагинация, QR) и **`app/components/ui/`** — переиспользуемые контролы (кнопки, поля, таблицы, диалоги).
+- **`app/app.css`**: глобальные стили и токены Tailwind.
+- **`vite.config.ts`**: плагины Vite — **React Router**, **Tailwind**.
+- **`react-router.config.ts`**: флаги фреймворка (в т.ч. **SSR**).
+- **`openapi.yaml`**: схема API для генерации типов и как договорённость с бэкендом.
+
+## Конфигурация
+
+Параметры задаются переменными окружения и файлом **`.env`** (шаблон — **`.env.example`**).
+
+| Переменная | Назначение |
+|------------|------------|
+| **`VITE_PUBLIC_API_BASE_URL`** | Origin бэкенда **без** завершающего слэша (в коде пути вида `/api/...`), например `http://127.0.0.1:8000`. |
+
+## Локальная разработка
+
+Установка зависимостей и dev-сервер (Vite):
 
 ```bash
-npm install
-```
-
-### Development
-
-Start the development server with HMR:
-
-```bash
+npm ci
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+Проверка типов (генерация типов маршрутов + `tsc`):
 
-## Building for Production
+```bash
+npm run typecheck
+```
 
-Create a production build:
+Сборка продакшен-артефактов и запуск Node-сервера раздачи (как в Docker):
 
 ```bash
 npm run build
+npm run start
 ```
 
-## Deployment
+## Генерация типов из OpenAPI
 
-### Docker Deployment
-
-To build and run using Docker:
+После изменений в **`openapi.yaml`** (или при подтягивании актуальной схемы с бэкенда):
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+npm run api:gen
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+Обновляется **`app/lib/api.schema.ts`**.
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
+## Docker: образ фронтенда
 
-### DIY Deployment
+Сборка и запуск из каталога **`frontend/`** (порт по умолчанию у `react-router-serve` — уточняйте в логах или задайте через переменные окружения фреймворка):
 
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
+```bash
+docker build -t cybertracker-frontend .
+docker run --rm -p 3000:3000 -e PORT=3000 cybertracker-frontend
 ```
 
-## Styling
+Многостадийная сборка описана в **`Dockerfile`**: `npm ci` → `npm run build` → продакшен-зависимости и **`npm run start`** на артефакте `build/`.
 
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
+## Линтинг и форматирование
 
----
+```bash
+npm run check
+```
 
-Built with ❤️ using React Router.
+Используется **Biome** (`biome check --write` по скрипту `check`).

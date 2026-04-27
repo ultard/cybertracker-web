@@ -16,6 +16,16 @@ export function canOrganize(role: string | undefined): boolean {
 	return role === 'admin' || role === 'organizer';
 }
 
+/** Подтверждение заявок и правка роли/статуса участника на турнире. */
+export function canManageParticipantRoster(role: string | undefined): boolean {
+	return (
+		role === 'admin' ||
+		role === 'organizer' ||
+		role === 'manager' ||
+		role === 'judge'
+	);
+}
+
 export function canJudgeMatches(role: string | undefined): boolean {
 	return role === 'admin' || role === 'organizer' || role === 'judge';
 }

@@ -6,9 +6,15 @@ import { toast } from 'sonner';
 import $api from '~/lib/api.client';
 import type { components } from '~/lib/api.schema';
 import { readApiErrorMessage } from '~/lib/api-errors';
-import { canJudgeMatches, canOrganize, canPredict } from '~/lib/roles';
+import {
+	canJudgeMatches,
+	canManageParticipantRoster,
+	canOrganize,
+	canPredict
+} from '~/lib/roles';
 
 import { PaginationControls } from '~/components/pagination-controls';
+import { QrCode } from '~/components/qr-code';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -183,6 +189,13 @@ export default function TournamentDetailRoute() {
 	const [qrToken, setQrToken] = useState<string | null>(null);
 	const [qrExp, setQrExp] = useState<string | null>(null);
 
+	useEffect(() => {
+		if (t?.status !== 'recruiting') {
+			setQrToken(null);
+			setQrExp(null);
+		}
+	}, [t?.status]);
+
 	if (!Number.isFinite(id)) {
 		return <p className="text-destructive">Некорректный ID</p>;
 	}
@@ -192,8 +205,10 @@ export default function TournamentDetailRoute() {
 	}
 
 	const canOrg = canOrganize(role);
+	const canRoster = canManageParticipantRoster(role);
 	const canMatch = canJudgeMatches(role);
 	const canRunPredict = canPredict(role);
+	const showParticipantActions = canRoster || canOrg;
 	const recruiting = t.status === 'recruiting';
 
 	return (
@@ -305,12 +320,12 @@ export default function TournamentDetailRoute() {
 				</Card>
 			) : null}
 
-			{accessToken ? (
+			{accessToken && recruiting ? (
 				<Card>
 					<CardHeader>
 						<CardTitle className="text-base">QR для прохода</CardTitle>
 						<CardDescription>
-							Доступно, если вы участник этого турнира
+							Только на этапе набора (recruiting), если вы участник турнира
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="flex flex-col gap-4">
@@ -340,13 +355,37 @@ export default function TournamentDetailRoute() {
 							Сгенерировать токен
 						</Button>
 						{qrToken ? (
-							<Alert>
-								<AlertTitle>Токен</AlertTitle>
-								<AlertDescription className="break-all font-mono text-xs">
-									{qrToken}
-									{qrExp ? ` (до ${qrExp})` : ''}
-								</AlertDescription>
-							</Alert>
+							<div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+								<div className="rounded-lg border bg-white p-3 shadow-sm">
+									<QrCode value={qrToken} size={200} className="block" />
+								</div>
+								<div className="min-w-0 flex-1 space-y-2">
+									{qrExp ? (
+										<p className="text-muted-foreground text-sm">
+											Действителен до {qrExp}
+										</p>
+									) : null}
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={() => {
+											void navigator.clipboard
+												.writeText(qrToken)
+												.then(() => toast.success('Токен скопирован'))
+												.catch(() => toast.error('Не удалось скопировать'));
+										}}
+									>
+										Скопировать токен
+									</Button>
+									<Alert>
+										<AlertTitle className="text-xs">Текст токена</AlertTitle>
+										<AlertDescription className="break-all font-mono text-xs">
+											{qrToken}
+										</AlertDescription>
+									</Alert>
+								</div>
+							</div>
 						) : null}
 					</CardContent>
 				</Card>
@@ -370,7 +409,7 @@ export default function TournamentDetailRoute() {
 											<TableHead>Ник</TableHead>
 											<TableHead>Роль</TableHead>
 											<TableHead>Статус</TableHead>
-											{canOrg ? <TableHead /> : null}
+											{showParticipantActions ? <TableHead /> : null}
 										</TableRow>
 									</TableHeader>
 									<TableBody>
@@ -380,14 +419,28 @@ export default function TournamentDetailRoute() {
 												<TableCell>{p.nickname ?? p.user_id}</TableCell>
 												<TableCell>{p.participant_role}</TableCell>
 												<TableCell>{p.status}</TableCell>
-												{canOrg ? (
+												{showParticipantActions ? (
 													<TableCell>
-														<ParticipantEditDialog
-															participantId={p.id}
-															initialStatus={p.status as ParticipantStatus}
-															initialRole={p.participant_role}
-															onSaved={() => queryClient.invalidateQueries()}
-														/>
+														<div className="flex flex-wrap gap-2">
+															{canRoster ? (
+																<ParticipantEditDialog
+																	participantId={p.id}
+																	initialStatus={p.status as ParticipantStatus}
+																	initialRole={p.participant_role}
+																	onSaved={() =>
+																		queryClient.invalidateQueries()
+																	}
+																/>
+															) : null}
+															{canOrg ? (
+																<ParticipantDeleteDialog
+																	participantId={p.id}
+																	onDeleted={() =>
+																		queryClient.invalidateQueries()
+																	}
+																/>
+															) : null}
+														</div>
 													</TableCell>
 												) : null}
 											</TableRow>
@@ -579,6 +632,69 @@ function ParticipantEditDialog({
 						}
 					>
 						Сохранить
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function ParticipantDeleteDialog({
+	participantId,
+	onDeleted
+}: {
+	participantId: number;
+	onDeleted: () => void;
+}) {
+	const [open, setOpen] = useState(false);
+
+	const del = $api.useMutation('delete', '/api/participants/{participant_id}', {
+		onSuccess: async () => {
+			toast.success('Участник удалён');
+			onDeleted();
+			setOpen(false);
+		},
+		onError: async (err) => {
+			const res = (err as { response?: Response })?.response;
+			if (res) toast.error(await readApiErrorMessage(res));
+			else toast.error('Ошибка');
+		}
+	});
+
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<DialogTrigger asChild>
+				<Button size="sm" variant="destructive">
+					Удалить
+				</Button>
+			</DialogTrigger>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Удалить участника #{participantId}?</DialogTitle>
+				</DialogHeader>
+				<p className="text-muted-foreground text-sm">
+					Запись будет удалена из турнира. Связанные QR и отметки посещения тоже
+					удалятся. Ссылки на этого участника в матчах будут сброшены.
+				</p>
+				<DialogFooter>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={() => setOpen(false)}
+					>
+						Отмена
+					</Button>
+					<Button
+						type="button"
+						variant="destructive"
+						disabled={del.isPending}
+						onClick={() =>
+							del.mutate({
+								params: { path: { participant_id: participantId } }
+							})
+						}
+					>
+						Удалить
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -1,10 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router';
+import { useLayoutEffect, useMemo, useState } from 'react';
+import { Link, Navigate, useLocation, useParams } from 'react-router';
 import { toast } from 'sonner';
 
 import $api from '~/lib/api.client';
 import type { components } from '~/lib/api.schema';
+import type { TournamentStatus, TournamentType } from '~/lib/api.types';
 import { readApiErrorMessage } from '~/lib/api-errors';
 import { canOrganize } from '~/lib/roles';
 
@@ -31,8 +32,10 @@ import { useMe } from '~/hooks/use-me';
 
 import type { Route } from './+types/org-tournament-edit';
 
-type TT = components['schemas']['TournamentType'];
-type TS = components['schemas']['TournamentStatus'];
+const DISCIPLINES_LIMIT = 200;
+
+type TournamentRead = components['schemas']['TournamentRead'];
+type DisciplineRead = components['schemas']['DisciplineRead'];
 
 function toLocalDatetimeValue(iso: string | undefined): string {
 	if (!iso) return '';
@@ -42,44 +45,69 @@ function toLocalDatetimeValue(iso: string | undefined): string {
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function formStateFromTournament(t: TournamentRead) {
+	return {
+		name: t.name,
+		disciplineId: String(t.discipline_id),
+		tournamentType: t.tournament_type as TournamentType,
+		startAt: toLocalDatetimeValue(t.start_at),
+		endAt: toLocalDatetimeValue(t.end_at),
+		prizePool: String(t.prize_pool),
+		maxParticipants: String(t.max_participants),
+		status: t.status as TournamentStatus
+	};
+}
+
 export function meta(_args: Route.MetaArgs) {
 	return [{ title: 'Редактирование турнира — CyberTracker' }];
 }
 
-export default function OrgTournamentEditRoute() {
-	const { tournamentId } = useParams();
-	const id = Number(tournamentId);
-	const queryClient = useQueryClient();
-	const { data: me, isLoading: meLoad } = useMe();
+type OrgTournamentEditFormProps = {
+	tournament: TournamentRead;
+	disciplineOptions: DisciplineRead[];
+	tournamentId: number;
+};
 
-	const { data: t, isLoading: tLoad } = $api.useQuery(
-		'get',
-		'/api/tournaments/{tournament_id}',
-		{ params: { path: { tournament_id: id } } },
-		{ enabled: Number.isFinite(id) }
+function OrgTournamentEditForm({
+	tournament,
+	disciplineOptions,
+	tournamentId
+}: OrgTournamentEditFormProps) {
+	const queryClient = useQueryClient();
+	const [name, setName] = useState(() => tournament.name);
+	const [disciplineId, setDisciplineId] = useState(() =>
+		String(tournament.discipline_id)
+	);
+	const [tournamentType, setTournamentType] = useState(
+		() => tournament.tournament_type as TournamentType
+	);
+	const [startAt, setStartAt] = useState(() =>
+		toLocalDatetimeValue(tournament.start_at)
+	);
+	const [endAt, setEndAt] = useState(() =>
+		toLocalDatetimeValue(tournament.end_at)
+	);
+	const [prizePool, setPrizePool] = useState(() =>
+		String(tournament.prize_pool)
+	);
+	const [maxParticipants, setMaxParticipants] = useState(() =>
+		String(tournament.max_participants)
+	);
+	const [status, setStatus] = useState(
+		() => tournament.status as TournamentStatus
 	);
 
-	const [name, setName] = useState('');
-	const [disciplineId, setDisciplineId] = useState('');
-	const [tournamentType, setTournamentType] = useState<TT>('offline');
-	const [startAt, setStartAt] = useState('');
-	const [endAt, setEndAt] = useState('');
-	const [prizePool, setPrizePool] = useState('');
-	const [maxParticipants, setMaxParticipants] = useState('');
-	const [status, setStatus] = useState<TS>('draft');
-
-	useEffect(() => {
-		if (t) {
-			setName(t.name);
-			setDisciplineId(String(t.discipline_id));
-			setTournamentType(t.tournament_type as TT);
-			setStartAt(toLocalDatetimeValue(t.start_at));
-			setEndAt(toLocalDatetimeValue(t.end_at));
-			setPrizePool(String(t.prize_pool));
-			setMaxParticipants(String(t.max_participants));
-			setStatus(t.status as TS);
-		}
-	}, [t]);
+	useLayoutEffect(() => {
+		const s = formStateFromTournament(tournament);
+		setName(s.name);
+		setDisciplineId(s.disciplineId);
+		setTournamentType(s.tournamentType);
+		setStartAt(s.startAt);
+		setEndAt(s.endAt);
+		setPrizePool(s.prizePool);
+		setMaxParticipants(s.maxParticipants);
+		setStatus(s.status);
+	}, [tournament]);
 
 	const patch = $api.useMutation('patch', '/api/tournaments/{tournament_id}', {
 		onSuccess: async () => {
@@ -93,29 +121,13 @@ export default function OrgTournamentEditRoute() {
 		}
 	});
 
-	if (!Number.isFinite(id)) {
-		return <p className="text-destructive">Некорректный ID</p>;
-	}
-
-	if (meLoad || tLoad) {
-		return <Skeleton className="h-64 w-full max-w-lg" />;
-	}
-
-	if (!canOrganize(me?.role)) {
-		return <Navigate to="/" replace />;
-	}
-
-	if (!t) {
-		return <p className="text-destructive">Турнир не найден</p>;
-	}
-
 	function submit(e: React.FormEvent) {
 		e.preventDefault();
 		const did = Number(disciplineId);
 		const start = startAt ? new Date(startAt).toISOString() : null;
 		const end = endAt ? new Date(endAt).toISOString() : null;
 		patch.mutate({
-			params: { path: { tournament_id: id } },
+			params: { path: { tournament_id: tournamentId } },
 			body: {
 				name,
 				discipline_id: Number.isFinite(did) ? did : null,
@@ -132,12 +144,12 @@ export default function OrgTournamentEditRoute() {
 	return (
 		<div className="mx-auto max-w-lg">
 			<Button variant="ghost" size="sm" asChild className="mb-4">
-				<Link to={`/tournaments/${id}`}>← Турнир</Link>
+				<Link to={`/tournaments/${tournamentId}`}>← Турнир</Link>
 			</Button>
 			<Card>
 				<CardHeader>
 					<CardTitle>Редактировать турнир</CardTitle>
-					<CardDescription>{t.name}</CardDescription>
+					<CardDescription>{tournament.name}</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={submit}>
@@ -151,18 +163,38 @@ export default function OrgTournamentEditRoute() {
 								/>
 							</Field>
 							<Field>
-								<FieldLabel>ID дисциплины</FieldLabel>
-								<Input
-									value={disciplineId}
-									onChange={(e) => setDisciplineId(e.target.value)}
-									required
-								/>
+								<FieldLabel>Дисциплина</FieldLabel>
+								{disciplineOptions.length === 0 ? (
+									<p className="text-sm text-muted-foreground">
+										Нет дисциплин в каталоге.{' '}
+										<Link to="/disciplines" className="text-primary underline">
+											Открыть список
+										</Link>
+									</p>
+								) : (
+									<Select
+										value={disciplineId || undefined}
+										onValueChange={setDisciplineId}
+										required
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Выберите дисциплину" />
+										</SelectTrigger>
+										<SelectContent>
+											{disciplineOptions.map((d) => (
+												<SelectItem key={d.id} value={String(d.id)}>
+													{d.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								)}
 							</Field>
 							<Field>
 								<FieldLabel>Тип</FieldLabel>
 								<Select
 									value={tournamentType}
-									onValueChange={(v) => setTournamentType(v as TT)}
+									onValueChange={(v) => setTournamentType(v as TournamentType)}
 								>
 									<SelectTrigger>
 										<SelectValue />
@@ -177,7 +209,7 @@ export default function OrgTournamentEditRoute() {
 								<FieldLabel>Статус</FieldLabel>
 								<Select
 									value={status}
-									onValueChange={(v) => setStatus(v as TS)}
+									onValueChange={(v) => setStatus(v as TournamentStatus)}
 								>
 									<SelectTrigger>
 										<SelectValue />
@@ -225,7 +257,14 @@ export default function OrgTournamentEditRoute() {
 									required
 								/>
 							</Field>
-							<Button type="submit" disabled={patch.isPending}>
+							<Button
+								type="submit"
+								disabled={
+									patch.isPending ||
+									disciplineOptions.length === 0 ||
+									!disciplineId
+								}
+							>
 								Сохранить
 							</Button>
 						</FieldGroup>
@@ -233,5 +272,71 @@ export default function OrgTournamentEditRoute() {
 				</CardContent>
 			</Card>
 		</div>
+	);
+}
+
+export default function OrgTournamentEditRoute() {
+	const { tournamentId } = useParams();
+	const id = Number(tournamentId);
+	const location = useLocation();
+	const { data: me, isLoading: meLoad } = useMe();
+
+	const { data: t, isLoading: tLoad } = $api.useQuery(
+		'get',
+		'/api/tournaments/{tournament_id}',
+		{ params: { path: { tournament_id: id } } },
+		{ enabled: Number.isFinite(id) }
+	);
+
+	const { data: disciplinesPage, isLoading: disciplinesLoad } = $api.useQuery(
+		'get',
+		'/api/disciplines',
+		{
+			params: {
+				query: { skip: 0, limit: DISCIPLINES_LIMIT, name: null }
+			}
+		},
+		{ enabled: !meLoad && me != null && canOrganize(me.role) }
+	);
+
+	const disciplineOptions = useMemo((): DisciplineRead[] => {
+		const items = disciplinesPage?.items ?? [];
+		if (!t) return items;
+		const ids = new Set(items.map((d) => d.id));
+		if (ids.has(t.discipline_id)) return items;
+		const label = t.discipline_name?.trim() || `Дисциплина #${t.discipline_id}`;
+		return [
+			{
+				id: t.discipline_id,
+				name: label,
+				description: null
+			},
+			...items
+		];
+	}, [disciplinesPage?.items, t]);
+
+	if (!Number.isFinite(id)) {
+		return <p className="text-destructive">Некорректный ID</p>;
+	}
+
+	if (meLoad || tLoad || disciplinesLoad) {
+		return <Skeleton className="h-64 w-full max-w-lg" />;
+	}
+
+	if (!canOrganize(me?.role)) {
+		return <Navigate to="/" replace />;
+	}
+
+	if (!t) {
+		return <p className="text-destructive">Турнир не найден</p>;
+	}
+
+	return (
+		<OrgTournamentEditForm
+			key={location.key}
+			tournament={t}
+			disciplineOptions={disciplineOptions}
+			tournamentId={id}
+		/>
 	);
 }

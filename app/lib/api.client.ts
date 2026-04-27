@@ -79,4 +79,6 @@ const fetchClient = createFetchClient<paths>({
 
 const $api = createClient(fetchClient);
 
+export const apiFetch = fetchClient;
+
 export default $api;

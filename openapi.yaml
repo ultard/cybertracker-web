@@ -666,9 +666,9 @@ paths:
       tags:
         - Участники
       summary: Участники турнира
-      description: Фильтр по tournament_id. Персонал — полный список с корректной
-        пагинацией; авторизованный пользователь — только своя заявка; без токена
-        — только подтверждённые.
+      description: Фильтр по tournament_id. Персонал — полный список; остальные —
+        все участники, кроме чужих заявок в статусе pending (своя pending для
+        авторизованного пользователя показывается).
       operationId: list_participants_api_participants_get
       security:
         - HTTPBearer: []
@@ -767,6 +767,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ParticipantRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    delete:
+      tags:
+        - Участники
+      summary: Удалить участника турнира
+      operationId: delete_participant_api_participants__participant_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: participant_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Participant Id
+      responses:
+        "204":
+          description: Successful Response
         "422":
           description: Validation Error
           content:

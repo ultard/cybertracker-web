@@ -1,10 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 
 import $api from '~/lib/api.client';
-import type { components } from '~/lib/api.schema';
+import type { TournamentStatus, TournamentType } from '~/lib/api.types';
 import { readApiErrorMessage } from '~/lib/api-errors';
 import { canOrganize } from '~/lib/roles';
 
@@ -31,8 +31,7 @@ import { useMe } from '~/hooks/use-me';
 
 import type { Route } from './+types/org-tournament-new';
 
-type TT = components['schemas']['TournamentType'];
-type TS = components['schemas']['TournamentStatus'];
+const DISCIPLINES_LIMIT = 200;
 
 export function meta(_args: Route.MetaArgs) {
 	return [{ title: 'Новый турнир — CyberTracker' }];
@@ -43,14 +42,31 @@ export default function OrgTournamentNewRoute() {
 	const queryClient = useQueryClient();
 	const { data: me, isLoading: meLoad } = useMe();
 
+	const { data: disciplinesPage, isLoading: disciplinesLoad } = $api.useQuery(
+		'get',
+		'/api/disciplines',
+		{
+			params: {
+				query: { skip: 0, limit: DISCIPLINES_LIMIT, name: null }
+			}
+		},
+		{ enabled: !meLoad && me != null && canOrganize(me.role) }
+	);
+
+	const disciplineOptions = useMemo(
+		() => disciplinesPage?.items ?? [],
+		[disciplinesPage?.items]
+	);
+
 	const [name, setName] = useState('');
 	const [disciplineId, setDisciplineId] = useState('');
-	const [tournamentType, setTournamentType] = useState<TT>('offline');
+	const [tournamentType, setTournamentType] =
+		useState<TournamentType>('offline');
 	const [startAt, setStartAt] = useState('');
 	const [endAt, setEndAt] = useState('');
 	const [prizePool, setPrizePool] = useState('0');
 	const [maxParticipants, setMaxParticipants] = useState('32');
-	const [status, setStatus] = useState<TS>('draft');
+	const [status, setStatus] = useState<TournamentStatus>('draft');
 
 	const create = $api.useMutation('post', '/api/tournaments', {
 		onSuccess: async (data) => {
@@ -66,7 +82,7 @@ export default function OrgTournamentNewRoute() {
 		}
 	});
 
-	if (meLoad) {
+	if (meLoad || disciplinesLoad) {
 		return <Skeleton className="h-64 w-full max-w-lg" />;
 	}
 
@@ -77,8 +93,8 @@ export default function OrgTournamentNewRoute() {
 	function submit(e: React.FormEvent) {
 		e.preventDefault();
 		const did = Number(disciplineId);
-		if (!Number.isFinite(did)) {
-			toast.error('Укажите ID дисциплины');
+		if (!disciplineId || !Number.isFinite(did)) {
+			toast.error('Выберите дисциплину');
 			return;
 		}
 		const start = startAt ? new Date(startAt).toISOString() : '';
@@ -121,19 +137,38 @@ export default function OrgTournamentNewRoute() {
 								/>
 							</Field>
 							<Field>
-								<FieldLabel>ID дисциплины</FieldLabel>
-								<Input
-									inputMode="numeric"
-									value={disciplineId}
-									onChange={(e) => setDisciplineId(e.target.value)}
-									required
-								/>
+								<FieldLabel>Дисциплина</FieldLabel>
+								{disciplineOptions.length === 0 ? (
+									<p className="text-sm text-muted-foreground">
+										Нет дисциплин в каталоге.{' '}
+										<Link to="/disciplines" className="text-primary underline">
+											Открыть список
+										</Link>
+									</p>
+								) : (
+									<Select
+										value={disciplineId || undefined}
+										onValueChange={setDisciplineId}
+										required
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Выберите дисциплину" />
+										</SelectTrigger>
+										<SelectContent>
+											{disciplineOptions.map((d) => (
+												<SelectItem key={d.id} value={String(d.id)}>
+													{d.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								)}
 							</Field>
 							<Field>
 								<FieldLabel>Тип</FieldLabel>
 								<Select
 									value={tournamentType}
-									onValueChange={(v) => setTournamentType(v as TT)}
+									onValueChange={(v) => setTournamentType(v as TournamentType)}
 								>
 									<SelectTrigger>
 										<SelectValue />
@@ -148,7 +183,7 @@ export default function OrgTournamentNewRoute() {
 								<FieldLabel>Статус</FieldLabel>
 								<Select
 									value={status}
-									onValueChange={(v) => setStatus(v as TS)}
+									onValueChange={(v) => setStatus(v as TournamentStatus)}
 								>
 									<SelectTrigger>
 										<SelectValue />
@@ -197,7 +232,14 @@ export default function OrgTournamentNewRoute() {
 									required
 								/>
 							</Field>
-							<Button type="submit" disabled={create.isPending}>
+							<Button
+								type="submit"
+								disabled={
+									create.isPending ||
+									disciplineOptions.length === 0 ||
+									!disciplineId
+								}
+							>
 								Создать
 							</Button>
 						</FieldGroup>

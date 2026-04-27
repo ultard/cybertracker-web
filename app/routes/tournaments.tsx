@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
 import $api from '~/lib/api.client';
-import type { components } from '~/lib/api.schema';
+import type { TournamentStatus } from '~/lib/api.types';
 
 import { PaginationControls } from '~/components/pagination-controls';
 import { Badge } from '~/components/ui/badge';
@@ -27,8 +27,6 @@ import { Skeleton } from '~/components/ui/skeleton';
 import type { Route } from './+types/tournaments';
 
 const PAGE = 20;
-
-type TournamentStatus = components['schemas']['TournamentStatus'];
 
 const STATUSES: TournamentStatus[] = [
 	'draft',
