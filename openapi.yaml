@@ -1,0 +1,2086 @@
+openapi: 3.1.0
+info:
+  title: CyberTracker
+  description: REST API для киберспорт-арены.
+  version: 0.1.0
+paths:
+  /api/auth/register:
+    post:
+      tags:
+        - Авторизация
+      summary: Регистрация
+      description: Создаёт учётную запись.
+      operationId: register_api_auth_register_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "409":
+          description: логин уже занят
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+        "500":
+          description: роли не инициализированы
+  /api/auth/login:
+    post:
+      tags:
+        - Авторизация
+      summary: Вход
+      description: Выполняет вход в систему.
+      operationId: login_api_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: неверные учётные данные или пользователь не активен
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+        "429":
+          description: превышен лимит запросов
+  /api/auth/refresh:
+    post:
+      tags:
+        - Авторизация
+      summary: Обновить токены
+      operationId: refresh_tokens_api_auth_refresh_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: токен невалиден
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+        "429":
+          description: превышен лимит запросов
+  /api/auth/logout:
+    post:
+      tags:
+        - Авторизация
+      summary: Выход
+      operationId: logout_api_auth_logout_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: boolean
+                type: object
+                title: Response Logout Api Auth Logout Post
+        "401":
+          description: токен невалиден
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+  /api/auth/me:
+    get:
+      tags:
+        - Авторизация
+      summary: Текущий пользователь
+      description: Возвращает данные авторизованного пользователя.
+      operationId: me_api_auth_me_get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          description: требуется авторизация
+      security:
+        - HTTPBearer: []
+  /api/users:
+    get:
+      tags:
+        - Пользователи
+      summary: Список пользователей
+      operationId: list_users_api_users_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            title: Skip
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 200
+            minimum: 1
+            default: 20
+            title: Limit
+        - name: login
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: "null"
+            title: Login
+        - name: role
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - $ref: "#/components/schemas/UserRole"
+              - type: "null"
+            title: Role
+        - name: is_active
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: boolean
+              - type: "null"
+            title: Is Active
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_UserRead_"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/users/me:
+    get:
+      tags:
+        - Пользователи
+      summary: Текущий пользователь
+      operationId: get_me_api_users_me_get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRead"
+      security:
+        - HTTPBearer: []
+    patch:
+      tags:
+        - Пользователи
+      summary: Обновить свой профиль
+      operationId: update_my_profile_api_users_me_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+        required: true
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+  /api/users/{user_id}:
+    get:
+      tags:
+        - Пользователи
+      summary: Пользователь по ID
+      operationId: get_user_api_users__user_id__get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: User Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    patch:
+      tags:
+        - Пользователи
+      summary: Обновить пользователя
+      operationId: update_user_api_users__user_id__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: User Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    delete:
+      tags:
+        - Пользователи
+      summary: Удалить пользователя
+      operationId: delete_user_api_users__user_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: User Id
+      responses:
+        "204":
+          description: Successful Response
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/disciplines:
+    get:
+      tags:
+        - Дисциплины
+      summary: Список дисциплин
+      description: Пагинация и фильтр по имени. Публично, без авторизации.
+      operationId: list_disciplines_api_disciplines_get
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            title: Skip
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 200
+            minimum: 1
+            default: 20
+            title: Limit
+        - name: name
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: "null"
+            title: Name
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_DisciplineRead_"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    post:
+      tags:
+        - Дисциплины
+      summary: Создать дисциплину
+      description: Игра по которой проводятся турниры.
+      operationId: create_discipline_api_disciplines_post
+      security:
+        - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisciplineCreate"
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisciplineRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/disciplines/{discipline_id}:
+    get:
+      tags:
+        - Дисциплины
+      summary: Дисциплина по ID
+      operationId: get_discipline_api_disciplines__discipline_id__get
+      parameters:
+        - name: discipline_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Discipline Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisciplineRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    patch:
+      tags:
+        - Дисциплины
+      summary: Обновить дисциплину
+      operationId: update_discipline_api_disciplines__discipline_id__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: discipline_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Discipline Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisciplineUpdate"
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisciplineRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    delete:
+      tags:
+        - Дисциплины
+      summary: Удалить дисциплину
+      operationId: delete_discipline_api_disciplines__discipline_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: discipline_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Discipline Id
+      responses:
+        "204":
+          description: Successful Response
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/tournaments:
+    get:
+      tags:
+        - Турниры
+      summary: Список турниров
+      operationId: list_tournaments_api_tournaments_get
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            title: Skip
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 200
+            minimum: 1
+            default: 20
+            title: Limit
+        - name: discipline_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: integer
+              - type: "null"
+            title: Discipline Id
+        - name: status
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - $ref: "#/components/schemas/TournamentStatus"
+              - type: "null"
+            title: Status
+        - name: name
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: "null"
+            title: Name
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_TournamentRead_"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    post:
+      tags:
+        - Турниры
+      summary: Создать турнир
+      operationId: create_tournament_api_tournaments_post
+      security:
+        - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentCreate"
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/tournaments/{tournament_id}:
+    get:
+      tags:
+        - Турниры
+      summary: Турнир по ID
+      operationId: get_tournament_api_tournaments__tournament_id__get
+      parameters:
+        - name: tournament_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Tournament Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    patch:
+      tags:
+        - Турниры
+      summary: Обновить турнир
+      operationId: update_tournament_api_tournaments__tournament_id__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: tournament_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Tournament Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentUpdate"
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/tournaments/{tournament_id}/activate:
+    post:
+      tags:
+        - Турниры
+      summary: Активировать турнир
+      description: Переводит турнир в статус recruiting.
+      operationId: activate_tournament_api_tournaments__tournament_id__activate_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: tournament_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Tournament Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/participants:
+    get:
+      tags:
+        - Участники
+      summary: Участники турнира
+      description: Фильтр по tournament_id. Персонал — полный список с корректной
+        пагинацией; авторизованный пользователь — только своя заявка; без токена
+        — только подтверждённые.
+      operationId: list_participants_api_participants_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: tournament_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Filter by tournament
+            title: Tournament Id
+          description: Filter by tournament
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            title: Skip
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 200
+            minimum: 1
+            default: 50
+            title: Limit
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_ParticipantRead_"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/participants/{participant_id}:
+    get:
+      tags:
+        - Участники
+      summary: Участник турнира по ID
+      operationId: get_participant_api_participants__participant_id__get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: participant_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Participant Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    patch:
+      tags:
+        - Участники
+      summary: Обновить участника турнира
+      description: Обновляет статус участия в турнире.
+      operationId: update_participant_api_participants__participant_id__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: participant_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Participant Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantUpdate"
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/participants/register:
+    post:
+      tags:
+        - Участники
+      summary: Записаться на турнир
+      description: Текущий пользователь оформляет участие в турнире.
+      operationId: register_for_tournament_api_participants_register_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantRegister"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+  /api/matches:
+    get:
+      tags:
+        - Матчи
+      summary: Список матчей
+      operationId: list_matches_api_matches_get
+      parameters:
+        - name: tournament_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            title: Tournament Id
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            title: Skip
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 200
+            minimum: 1
+            default: 50
+            title: Limit
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_MatchRead_"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    post:
+      tags:
+        - Матчи
+      summary: Создать матч
+      operationId: create_match_api_matches_post
+      security:
+        - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchCreate"
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/matches/{match_id}:
+    get:
+      tags:
+        - Матчи
+      summary: Матч по ID
+      operationId: get_match_api_matches__match_id__get
+      parameters:
+        - name: match_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Match Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+    patch:
+      tags:
+        - Матчи
+      summary: Обновить матч
+      operationId: update_match_api_matches__match_id__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: match_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Match Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchUpdate"
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchRead"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/qr/generate:
+    post:
+      tags:
+        - QR-коды
+      summary: Сгенерировать QR-токен
+      description: Токен для прохода.
+      operationId: generate_qr_api_qr_generate_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: tournament_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Турнир, в котором вы участвуете
+            title: Tournament Id
+          description: Турнир, в котором вы участвуете
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QRGenerateResponse"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/qr/validate:
+    post:
+      tags:
+        - QR-коды
+      summary: Проверить QR и отметить посещение
+      description: Создаёт запись AttendanceLog.
+      operationId: validate_qr_api_qr_validate_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QRValidateRequest"
+        required: true
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QRValidateResponse"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+  /api/audit:
+    get:
+      tags:
+        - Аудит
+      summary: Журнал аудита
+      operationId: list_audit_api_audit_get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            title: Skip
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 200
+            minimum: 1
+            default: 50
+            title: Limit
+        - name: entity
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: "null"
+            title: Entity
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: integer
+              - type: "null"
+            title: User Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditRead"
+                title: Response List Audit Api Audit Get
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/predict/tournament/{tournament_id}:
+    post:
+      tags:
+        - Прогноз посещаемости
+      summary: Прогноз посещаемости
+      description: Прогноз по турниру
+      operationId: predict_api_predict_tournament__tournament_id__post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: tournament_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Tournament Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictResponse"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+components:
+  schemas:
+    AuditRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        user_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: User Id
+        action:
+          type: string
+          title: Action
+        entity:
+          type: string
+          title: Entity
+        entity_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Entity Id
+        created_at:
+          anyOf:
+            - {}
+            - type: "null"
+          title: Created At
+        changes:
+          anyOf:
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          title: Changes
+      type: object
+      required:
+        - id
+        - user_id
+        - action
+        - entity
+        - entity_id
+        - created_at
+        - changes
+      title: AuditRead
+      description: Запись журнала аудита.
+    DisciplineCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Name
+          description: Название
+        description:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Description
+      type: object
+      required:
+        - name
+      title: DisciplineCreate
+    DisciplineRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        name:
+          type: string
+          title: Name
+        description:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Description
+      type: object
+      required:
+        - id
+        - name
+        - description
+      title: DisciplineRead
+    DisciplineUpdate:
+      properties:
+        name:
+          anyOf:
+            - type: string
+              maxLength: 128
+              minLength: 1
+            - type: "null"
+          title: Name
+        description:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Description
+      type: object
+      title: DisciplineUpdate
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: "#/components/schemas/ValidationError"
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LoginRequest:
+      properties:
+        login:
+          type: string
+          maxLength: 128
+          minLength: 3
+          title: Login
+        password:
+          type: string
+          maxLength: 128
+          minLength: 4
+          title: Password
+      type: object
+      required:
+        - login
+        - password
+      title: LoginRequest
+    LogoutRequest:
+      properties:
+        refresh_token:
+          type: string
+          minLength: 20
+          title: Refresh Token
+      type: object
+      required:
+        - refresh_token
+      title: LogoutRequest
+    MatchCreate:
+      properties:
+        tournament_id:
+          type: integer
+          title: Tournament Id
+          description: ID турнира
+        played_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          title: Played At
+        winner_participant_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Winner Participant Id
+        participant_a_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Participant A Id
+        participant_b_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Participant B Id
+        score:
+          anyOf:
+            - type: string
+              maxLength: 64
+            - type: "null"
+          title: Score
+        comment:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Comment
+      type: object
+      required:
+        - tournament_id
+      title: MatchCreate
+    MatchRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        tournament_id:
+          type: integer
+          title: Tournament Id
+        played_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          title: Played At
+        winner_participant_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Winner Participant Id
+        participant_a_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Participant A Id
+        participant_b_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Participant B Id
+        score:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Score
+        comment:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Comment
+      type: object
+      required:
+        - id
+        - tournament_id
+        - played_at
+        - winner_participant_id
+        - participant_a_id
+        - participant_b_id
+        - score
+        - comment
+      title: MatchRead
+    MatchUpdate:
+      properties:
+        played_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          title: Played At
+        winner_participant_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Winner Participant Id
+        participant_a_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Participant A Id
+        participant_b_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Participant B Id
+        score:
+          anyOf:
+            - type: string
+              maxLength: 64
+            - type: "null"
+          title: Score
+        comment:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Comment
+      type: object
+      title: MatchUpdate
+    MeResponse:
+      properties:
+        id:
+          type: integer
+          title: Id
+        login:
+          type: string
+          title: Login
+        nickname:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Nickname
+        first_name:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: First Name
+        last_name:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Last Name
+        is_active:
+          type: boolean
+          title: Is Active
+        role:
+          type: string
+          title: Role
+      type: object
+      required:
+        - id
+        - login
+        - nickname
+        - first_name
+        - last_name
+        - is_active
+        - role
+      title: MeResponse
+    Page_DisciplineRead_:
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/DisciplineRead"
+          type: array
+          title: Items
+          description: Элементы страницы
+        total:
+          type: integer
+          title: Total
+          description: Всего записей
+        skip:
+          type: integer
+          minimum: 0
+          title: Skip
+          description: Смещение
+        limit:
+          type: integer
+          maximum: 200
+          minimum: 1
+          title: Limit
+          description: Лимит на странице
+      type: object
+      required:
+        - items
+        - total
+        - skip
+        - limit
+      title: Page[DisciplineRead]
+    Page_MatchRead_:
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/MatchRead"
+          type: array
+          title: Items
+          description: Элементы страницы
+        total:
+          type: integer
+          title: Total
+          description: Всего записей
+        skip:
+          type: integer
+          minimum: 0
+          title: Skip
+          description: Смещение
+        limit:
+          type: integer
+          maximum: 200
+          minimum: 1
+          title: Limit
+          description: Лимит на странице
+      type: object
+      required:
+        - items
+        - total
+        - skip
+        - limit
+      title: Page[MatchRead]
+    Page_ParticipantRead_:
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/ParticipantRead"
+          type: array
+          title: Items
+          description: Элементы страницы
+        total:
+          type: integer
+          title: Total
+          description: Всего записей
+        skip:
+          type: integer
+          minimum: 0
+          title: Skip
+          description: Смещение
+        limit:
+          type: integer
+          maximum: 200
+          minimum: 1
+          title: Limit
+          description: Лимит на странице
+      type: object
+      required:
+        - items
+        - total
+        - skip
+        - limit
+      title: Page[ParticipantRead]
+    Page_TournamentRead_:
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/TournamentRead"
+          type: array
+          title: Items
+          description: Элементы страницы
+        total:
+          type: integer
+          title: Total
+          description: Всего записей
+        skip:
+          type: integer
+          minimum: 0
+          title: Skip
+          description: Смещение
+        limit:
+          type: integer
+          maximum: 200
+          minimum: 1
+          title: Limit
+          description: Лимит на странице
+      type: object
+      required:
+        - items
+        - total
+        - skip
+        - limit
+      title: Page[TournamentRead]
+    Page_UserRead_:
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/UserRead"
+          type: array
+          title: Items
+          description: Элементы страницы
+        total:
+          type: integer
+          title: Total
+          description: Всего записей
+        skip:
+          type: integer
+          minimum: 0
+          title: Skip
+          description: Смещение
+        limit:
+          type: integer
+          maximum: 200
+          minimum: 1
+          title: Limit
+          description: Лимит на странице
+      type: object
+      required:
+        - items
+        - total
+        - skip
+        - limit
+      title: Page[UserRead]
+    ParticipantRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        user_id:
+          type: integer
+          title: User Id
+        tournament_id:
+          type: integer
+          title: Tournament Id
+        registered_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          title: Registered At
+        status:
+          type: string
+          title: Status
+        participant_role:
+          $ref: "#/components/schemas/ParticipantRole"
+        nickname:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Nickname
+      type: object
+      required:
+        - id
+        - user_id
+        - tournament_id
+        - registered_at
+        - status
+        - participant_role
+      title: ParticipantRead
+    ParticipantRegister:
+      properties:
+        tournament_id:
+          type: integer
+          title: Tournament Id
+          description: ID турнира
+        participant_role:
+          $ref: "#/components/schemas/ParticipantRole"
+          default: player
+      type: object
+      required:
+        - tournament_id
+      title: ParticipantRegister
+      description: "Тело запроса: текущий пользователь записывает себя на турнир."
+    ParticipantRole:
+      type: string
+      enum:
+        - player
+        - spectator
+      title: ParticipantRole
+    ParticipantStatus:
+      type: string
+      enum:
+        - pending
+        - confirmed
+        - disqualified
+        - banned
+        - cancelled
+      title: ParticipantStatus
+    ParticipantUpdate:
+      properties:
+        status:
+          anyOf:
+            - $ref: "#/components/schemas/ParticipantStatus"
+            - type: "null"
+        participant_role:
+          anyOf:
+            - $ref: "#/components/schemas/ParticipantRole"
+            - type: "null"
+      type: object
+      title: ParticipantUpdate
+    PredictResponse:
+      properties:
+        predicted_attendance:
+          type: integer
+          title: Predicted Attendance
+          description: Прогнозируемое число посетителей
+        model_metrics:
+          anyOf:
+            - additionalProperties:
+                anyOf:
+                  - type: number
+                  - type: "null"
+              type: object
+            - type: "null"
+          title: Model Metrics
+          description: Метрики качества модели (если посчитаны; при чистом инференсе
+            обычно пусто)
+        recommendations:
+          items:
+            type: string
+          type: array
+          title: Recommendations
+          description: Краткие рекомендации по результатам прогноза
+      type: object
+      required:
+        - predicted_attendance
+      title: PredictResponse
+    ProfileUpdate:
+      properties:
+        nickname:
+          anyOf:
+            - type: string
+              maxLength: 128
+            - type: "null"
+          title: Nickname
+        first_name:
+          anyOf:
+            - type: string
+              maxLength: 128
+              minLength: 1
+            - type: "null"
+          title: First Name
+        last_name:
+          anyOf:
+            - type: string
+              maxLength: 128
+              minLength: 1
+            - type: "null"
+          title: Last Name
+      type: object
+      title: ProfileUpdate
+      description: Профиль текущего пользователя (без смены логина и роли).
+    QRGenerateResponse:
+      properties:
+        token:
+          type: string
+          title: Token
+          description: Токен для отображения в QR
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+          description: Время истечения
+      type: object
+      required:
+        - token
+        - expires_at
+      title: QRGenerateResponse
+    QRValidateRequest:
+      properties:
+        token:
+          type: string
+          maxLength: 256
+          minLength: 8
+          title: Token
+          description: Токен из QR
+      type: object
+      required:
+        - token
+      title: QRValidateRequest
+    QRValidateResponse:
+      properties:
+        ok:
+          type: boolean
+          title: Ok
+        participant_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Participant Id
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+        - ok
+        - message
+      title: QRValidateResponse
+    RefreshRequest:
+      properties:
+        refresh_token:
+          type: string
+          minLength: 20
+          title: Refresh Token
+      type: object
+      required:
+        - refresh_token
+      title: RefreshRequest
+    RegisterRequest:
+      properties:
+        login:
+          type: string
+          maxLength: 128
+          minLength: 3
+          title: Login
+        password:
+          type: string
+          maxLength: 128
+          minLength: 6
+          title: Password
+        first_name:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: First Name
+        last_name:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Last Name
+        nickname:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Nickname
+      type: object
+      required:
+        - login
+        - password
+        - first_name
+        - last_name
+        - nickname
+      title: RegisterRequest
+    TokenResponse:
+      properties:
+        access_token:
+          type: string
+          title: Access Token
+        refresh_token:
+          type: string
+          title: Refresh Token
+        token_type:
+          type: string
+          const: bearer
+          title: Token Type
+          default: bearer
+        expires_in:
+          type: integer
+          title: Expires In
+          description: TTL access_token в секундах
+        refresh_expires_in:
+          type: integer
+          title: Refresh Expires In
+          description: TTL refresh_token в секундах
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - expires_in
+        - refresh_expires_in
+      title: TokenResponse
+    TournamentCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Name
+          description: Название
+        discipline_id:
+          type: integer
+          title: Discipline Id
+          description: ID дисциплины
+        tournament_type:
+          $ref: "#/components/schemas/TournamentType"
+          default: offline
+        start_at:
+          type: string
+          format: date-time
+          title: Start At
+        end_at:
+          type: string
+          format: date-time
+          title: End At
+        prize_pool:
+          anyOf:
+            - type: number
+              minimum: 0
+            - type: string
+              pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Prize Pool
+        max_participants:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          title: Max Participants
+        status:
+          $ref: "#/components/schemas/TournamentStatus"
+          default: draft
+      type: object
+      required:
+        - name
+        - discipline_id
+        - start_at
+        - end_at
+        - prize_pool
+        - max_participants
+      title: TournamentCreate
+    TournamentRead:
+      properties:
+        id:
+          type: integer
+          title: Id
+        name:
+          type: string
+          title: Name
+        discipline_id:
+          type: integer
+          title: Discipline Id
+        discipline_name:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Discipline Name
+        tournament_type:
+          type: string
+          title: Tournament Type
+        start_at:
+          type: string
+          format: date-time
+          title: Start At
+        end_at:
+          type: string
+          format: date-time
+          title: End At
+        prize_pool:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Prize Pool
+        max_participants:
+          type: integer
+          title: Max Participants
+        status:
+          type: string
+          title: Status
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          title: Created At
+        created_by_user_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Created By User Id
+      type: object
+      required:
+        - id
+        - name
+        - discipline_id
+        - tournament_type
+        - start_at
+        - end_at
+        - prize_pool
+        - max_participants
+        - status
+      title: TournamentRead
+    TournamentStatus:
+      type: string
+      enum:
+        - draft
+        - recruiting
+        - in_progress
+        - completed
+        - cancelled
+        - archived
+      title: TournamentStatus
+    TournamentType:
+      type: string
+      enum:
+        - online
+        - offline
+      title: TournamentType
+    TournamentUpdate:
+      properties:
+        name:
+          anyOf:
+            - type: string
+              maxLength: 255
+              minLength: 1
+            - type: "null"
+          title: Name
+        discipline_id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Discipline Id
+        tournament_type:
+          anyOf:
+            - $ref: "#/components/schemas/TournamentType"
+            - type: "null"
+        start_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          title: Start At
+        end_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          title: End At
+        prize_pool:
+          anyOf:
+            - type: number
+              minimum: 0
+            - type: string
+              pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+            - type: "null"
+          title: Prize Pool
+        max_participants:
+          anyOf:
+            - type: integer
+              maximum: 100000
+              minimum: 1
+            - type: "null"
+          title: Max Participants
+        status:
+          anyOf:
+            - $ref: "#/components/schemas/TournamentStatus"
+            - type: "null"
+      type: object
+      title: TournamentUpdate
+    UserRead:
+      properties:
+        login:
+          type: string
+          title: Login
+        nickname:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Nickname
+        first_name:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: First Name
+        last_name:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Last Name
+        role:
+          $ref: "#/components/schemas/UserRole"
+        id:
+          type: integer
+          title: Id
+        is_active:
+          type: boolean
+          title: Is Active
+      type: object
+      required:
+        - login
+        - nickname
+        - first_name
+        - last_name
+        - role
+        - id
+        - is_active
+      title: UserRead
+    UserRole:
+      type: string
+      enum:
+        - admin
+        - organizer
+        - manager
+        - judge
+        - user
+      title: UserRole
+    UserUpdate:
+      properties:
+        login:
+          anyOf:
+            - type: string
+              maxLength: 128
+              minLength: 3
+            - type: "null"
+          title: Login
+        nickname:
+          anyOf:
+            - type: string
+              maxLength: 128
+            - type: "null"
+          title: Nickname
+        first_name:
+          anyOf:
+            - type: string
+              maxLength: 128
+              minLength: 1
+            - type: "null"
+          title: First Name
+        last_name:
+          anyOf:
+            - type: string
+              maxLength: 128
+              minLength: 1
+            - type: "null"
+          title: Last Name
+        role:
+          anyOf:
+            - $ref: "#/components/schemas/UserRole"
+            - type: "null"
+        is_active:
+          anyOf:
+            - type: boolean
+            - type: "null"
+          title: Is Active
+      type: object
+      title: UserUpdate
+      description: Частичное обновление пользователя (админ).
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer
+tags:
+  - name: Авторизация
+    description: Регистрация, вход, выход, текущий пользователь.
+  - name: Пользователи
+    description: Учётные записи (CRUD). Только администратор.
+  - name: Дисциплины
+    description: Дисциплины турниров (CS2, Dota 2, Valorant и т.д.).
+  - name: Турниры
+    description: "Турниры: создание, редактирование, активация."
+  - name: Участники
+    description: "Участники (игроки): профили, уровни."
+  - name: QR-коды
+    description: Генерация и валидация QR-кодов для прохода на арену.
+  - name: Матчи
+    description: Результаты матчей.
+  - name: Аудит
+    description: Журнал аудита (действия пользователей).
+  - name: Прогноз посещаемости
+    description: Прогноз посещаемости турнира (ИИ-модуль).
