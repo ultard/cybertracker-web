@@ -1,16 +1,15 @@
 # CyberTracker frontend
 
-Веб-клиент для CyberTracker: **React 19**, **React Router 7** (фреймворк + Vite), **TanStack Query**, типизированные запросы к REST через **openapi-fetch** / **openapi-react-query** по спецификации **OpenAPI**. Стили — **Tailwind CSS 4**, компоненты на базе **Radix UI** / **shadcn**. Сборка по умолчанию **без SSR** (`react-router.config.ts`: `ssr: false`).
+Веб-клиент для CyberTracker: **React**, **React Router**, **TanStack Query**, типизированные запросы к REST через **openapi-fetch** / **openapi-react-query** по спецификации **OpenAPI**. Стили — **Tailwind CSS 4**, компоненты на базе **Radix UI** / **shadcn**. Сборка по умолчанию **без SSR**.
 
 ## Требования
 
-- **Node.js** ≥ 22  
-- **npm** (или совместимый менеджер пакетов)  
+- **Bun**
 - **Docker** (опционально, для сборки образа из `Dockerfile`)
 
 ## Документация API
 
-OpenAPI-контракт для клиента лежит в **`openapi.yaml`** (вручную синхронизируется с бэкендом). Живая документация эндпоинтов — в [backend/README.md](../backend/README.md) (Scalar, Swagger, ReDoc, `/openapi.json`).
+OpenAPI-контракт для клиента лежит в **`openapi.yaml`**.
 
 ## Структура кода
 
@@ -42,55 +41,51 @@ OpenAPI-контракт для клиента лежит в **`openapi.yaml`** 
 
 | Переменная | Назначение |
 |------------|------------|
-| **`VITE_PUBLIC_API_BASE_URL`** | Origin бэкенда **без** завершающего слэша (в коде пути вида `/api/...`), например `http://127.0.0.1:8000`. |
+| **`VITE_PUBLIC_API_BASE_URL`** | Origin бэкенда, например `http://127.0.0.1:8000`. |
 
 ## Локальная разработка
 
 Установка зависимостей и dev-сервер (Vite):
 
 ```bash
-npm ci
-npm run dev
+bun i
+bun run dev
 ```
 
-Проверка типов (генерация типов маршрутов + `tsc`):
+Проверка типов:
 
 ```bash
-npm run typecheck
+bun run typecheck
 ```
 
-Сборка продакшен-артефактов и запуск Node-сервера раздачи (как в Docker):
+Сборка продакшен-артефактов и запуск сервера раздачи:
 
 ```bash
-npm run build
-npm run start
+bun run build
+bun run start
 ```
 
 ## Генерация типов из OpenAPI
 
-После изменений в **`openapi.yaml`** (или при подтягивании актуальной схемы с бэкенда):
+После изменений в **`openapi.yaml`**:
 
 ```bash
-npm run api:gen
+bun run api:gen
 ```
 
 Обновляется **`app/lib/api.schema.ts`**.
 
 ## Docker: образ фронтенда
 
-Сборка и запуск из каталога **`frontend/`** (порт по умолчанию у `react-router-serve` — уточняйте в логах или задайте через переменные окружения фреймворка):
+Сборка и запуск из каталога **`frontend/`**:
 
 ```bash
 docker build -t cybertracker-frontend .
 docker run --rm -p 3000:3000 -e PORT=3000 cybertracker-frontend
 ```
 
-Многостадийная сборка описана в **`Dockerfile`**: `npm ci` → `npm run build` → продакшен-зависимости и **`npm run start`** на артефакте `build/`.
-
 ## Линтинг и форматирование
 
 ```bash
-npm run check
+bun run check
 ```
-
-Используется **Biome** (`biome check --write` по скрипту `check`).
