@@ -27,6 +27,11 @@ import {
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 
+import {
+	getTournamentDatetimeBounds,
+	validateTournamentSchedule
+} from '~/lib/tournament-dates';
+
 import { useMe } from '~/hooks/use-me';
 
 import type { Route } from './+types/org-tournament-new';
@@ -68,6 +73,8 @@ export default function OrgTournamentNewRoute() {
 	const [maxParticipants, setMaxParticipants] = useState('32');
 	const [status, setStatus] = useState<TournamentStatus>('draft');
 
+	const dateBounds = useMemo(() => getTournamentDatetimeBounds(), []);
+
 	const create = $api.useMutation('post', '/api/tournaments', {
 		onSuccess: async (data) => {
 			toast.success('Турнир создан');
@@ -95,6 +102,11 @@ export default function OrgTournamentNewRoute() {
 		const did = Number(disciplineId);
 		if (!disciplineId || !Number.isFinite(did)) {
 			toast.error('Выберите дисциплину');
+			return;
+		}
+		const dateError = validateTournamentSchedule(startAt, endAt);
+		if (dateError) {
+			toast.error(dateError);
 			return;
 		}
 		const start = startAt ? new Date(startAt).toISOString() : '';
@@ -204,6 +216,8 @@ export default function OrgTournamentNewRoute() {
 									type="datetime-local"
 									value={startAt}
 									onChange={(e) => setStartAt(e.target.value)}
+									min={dateBounds.min}
+									max={dateBounds.max}
 									required
 								/>
 							</Field>
@@ -213,6 +227,8 @@ export default function OrgTournamentNewRoute() {
 									type="datetime-local"
 									value={endAt}
 									onChange={(e) => setEndAt(e.target.value)}
+									min={startAt || dateBounds.min}
+									max={dateBounds.max}
 									required
 								/>
 							</Field>

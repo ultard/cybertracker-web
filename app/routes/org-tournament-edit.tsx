@@ -8,6 +8,12 @@ import type { components } from '~/lib/api.schema';
 import type { TournamentStatus, TournamentType } from '~/lib/api.types';
 import { readApiErrorMessage } from '~/lib/api-errors';
 import { canOrganize } from '~/lib/roles';
+import {
+	effectiveDatetimeMin,
+	getTournamentDatetimeBounds,
+	toLocalDatetimeValue,
+	validateTournamentSchedule
+} from '~/lib/tournament-dates';
 
 import { Button } from '~/components/ui/button';
 import {
@@ -36,14 +42,6 @@ const DISCIPLINES_LIMIT = 200;
 
 type TournamentRead = components['schemas']['TournamentRead'];
 type DisciplineRead = components['schemas']['DisciplineRead'];
-
-function toLocalDatetimeValue(iso: string | undefined): string {
-	if (!iso) return '';
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return '';
-	const pad = (n: number) => String(n).padStart(2, '0');
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function formStateFromTournament(t: TournamentRead) {
 	return {
@@ -97,6 +95,13 @@ function OrgTournamentEditForm({
 		() => tournament.status as TournamentStatus
 	);
 
+	const dateBounds = useMemo(() => getTournamentDatetimeBounds(), []);
+	const startMin = effectiveDatetimeMin(startAt, dateBounds.min);
+	const endMin = effectiveDatetimeMin(
+		endAt,
+		startAt && startAt >= dateBounds.min ? startAt : dateBounds.min
+	);
+
 	useLayoutEffect(() => {
 		const s = formStateFromTournament(tournament);
 		setName(s.name);
@@ -124,6 +129,20 @@ function OrgTournamentEditForm({
 	function submit(e: React.FormEvent) {
 		e.preventDefault();
 		const did = Number(disciplineId);
+		const originalStart = toLocalDatetimeValue(tournament.start_at);
+		const originalEnd = toLocalDatetimeValue(tournament.end_at);
+		if (startAt !== originalStart || endAt !== originalEnd) {
+			const dateError = validateTournamentSchedule(startAt, endAt);
+			if (dateError) {
+				toast.error(dateError);
+				return;
+			}
+		} else {
+			if (endAt <= startAt) {
+				toast.error('Окончание должно быть позже начала');
+				return;
+			}
+		}
 		const start = startAt ? new Date(startAt).toISOString() : null;
 		const end = endAt ? new Date(endAt).toISOString() : null;
 		patch.mutate({
@@ -230,6 +249,8 @@ function OrgTournamentEditForm({
 									type="datetime-local"
 									value={startAt}
 									onChange={(e) => setStartAt(e.target.value)}
+									min={startMin}
+									max={dateBounds.max}
 									required
 								/>
 							</Field>
@@ -239,6 +260,8 @@ function OrgTournamentEditForm({
 									type="datetime-local"
 									value={endAt}
 									onChange={(e) => setEndAt(e.target.value)}
+									min={endMin}
+									max={dateBounds.max}
 									required
 								/>
 							</Field>
